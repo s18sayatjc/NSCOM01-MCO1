@@ -1,5 +1,6 @@
 import socket
 import os
+import struct
 from pathlib import Path
 
 #Constants
@@ -7,22 +8,28 @@ PORT = 69
 MIN_BLK_SIZE = 8 
 MAX_BLK_SIZE = 65464
 BLK_SIZE = 512
-RRQ = 1
-WRQ = 2
-DAT = 3
-ACK = 4
-ERR = 5
+OPCODE_RRQ = 1
+OPCODE_WRQ = 2
+OPCODE_DAT = 3
+OPCODE_ACK = 4
+OPCODE_ERR = 5
 
 
 def create_socket():
     return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def verify_directory():
+    """to verify"""
 
-def request():
+def request(sock, ip_add, port, filename, op_code, blk_size):
     """Using RRQ and WRQ request to the TFTP server"""
+    send_req = struct.pack()
 
-def upload_file():
+def upload_file(ip_add, filename, blk_size):
+    server_add = (ip_add, PORT)
+    sock = create_socket()
+
+
 
 
 def download_file():
