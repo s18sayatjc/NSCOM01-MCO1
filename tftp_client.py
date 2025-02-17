@@ -5,6 +5,7 @@ from pathlib import Path
 
 #Constants
 PORT = 69
+TIMEOUT = 5
 MIN_BLK_SIZE = 8 
 MAX_BLK_SIZE = 65464
 BLK_SIZE = 512
@@ -25,15 +26,47 @@ def request(sock, ip_add, port, filename, op_code, blk_size):
     """Using RRQ and WRQ request to the TFTP server"""
     send_req = struct.pack()
 
+
+# put file
 def upload_file(ip_add, filename, blk_size):
     server_add = (ip_add, PORT)
     sock = create_socket()
 
+def req_packet(req_type, ip_add, filename, blk_size):
+    """For request rrq packets
+     2 bytes     string    1 byte     string   1 byte
+    -----------------------------------------------
+    | Opcode |  Filename  |   0  |    Mode    |   0  |
+    -----------------------------------------------
+    """
+    mode = "octet"
+    if req_type == OPCODE_RRQ:
+        opcode = b'\x00\x01'
+    elif req_type == OPCODE_WRQ:
+        opcode = b'\x00\x02'
 
+    packet = opcode + filename.encode() + b'\x00' + mode.encode() + b"\x00" + b"blksize\x00" + str(blk_size).encode() + b"\x00"
 
+    return packet
 
-def download_file():
+# get file
+def download_file(ip_add, filename, blk_size):
     """Downloads file from the TFTP server using RRQ"""
+    server_add = (ip_add, PORT)
+    sock = create_socket()
+    sock.timeout(TIMEOUT)
+
+    request_rrq = req_packet(ip_add, filename, blk_size)
+    sock.sendto(request_rrq, server_add)
+
+    with open(filename, "wb") as file:
+        while True: 
+            try:
+                data_packet, addr = sock.recvfrom(4 + blk_size)
+            except sock.timeout:
+                print("Error: Timeout occured")
+
+    sock.close()
 
 
 def main():
