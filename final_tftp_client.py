@@ -1,7 +1,5 @@
-# @author: DreiZzzzz
-# last updated: Feb 18, 2025 
-
 import socket
+import os
 
 # ask user to input server address and validate if the input is valid
 def ask_address():
@@ -46,20 +44,96 @@ def display_error(errorcode: int) -> str:
     }
     return f"Error code {errorcode}: {tftp_errors[errorcode]}"  # return the error message
 
+# start test wrq
 # WRQ(2)
+
+# WRQ(2)
+# currently working with jpg files
 def tftp_upload(sock, server_address): 
     print("-- UPLOAD FILE (WRQ) --")
     upload_file_name = input("NAME OF FILE TO UPLOAD: ")
     custom_file_name = input("CUSTOM FILE NAME WHEN UPLOADED IN THE SERVER: ")
 
+    # Check if the file exists in the client's directory
+    if not os.path.isfile(upload_file_name):
+        print(f"Error: File '{upload_file_name}' does not exist in the client's directory.")
+        return
+
     print("NEGOTIATION OPTIONS")
-
-    wrq = ""
+    wrq = construct_wrq_packet(custom_file_name)
     sock.sendto(wrq, server_address)
-    # t-size
-    # block size
-    #etc
+    print(f"Sent WRQ for '{upload_file_name}' to {server_address}")
 
+    expected_block = 1  # Set initial expected block to 1
+    buffer_size = 516  # Default buffer size
+
+    with open(upload_file_name, 'rb') as f:
+        while True:
+            try:
+                data, addr = sock.recvfrom(buffer_size)
+                print(f"Received data from {addr}")
+            except socket.timeout:
+                print("Timeout waiting for response from the server.")
+                break
+            
+            opcode = int.from_bytes(data[:2], byteorder='big')
+            print(f"Received opcode: {opcode}")
+
+            if opcode == 6:  # OACK packet
+                print("Received OACK from server. Negotiating options...")
+                options = {}
+                parts = data[2:].split(b'\x00')
+                parts = [p for p in parts if p]  # remove empty parts
+                for i in range(0, len(parts), 2):
+                    key = parts[i].decode('ascii')
+                    value = parts[i+1].decode('ascii') if i+1 < len(parts) else None
+                    options[key] = value
+                print("Negotiated options:", options)
+
+                if "blksize" in options:
+                    negotiated_blksize = int(options["blksize"])
+                    print(f"Negotiated block size: {negotiated_blksize}")
+                    buffer_size = negotiated_blksize + 4  # Adjust buffer size for data + TFTP header
+                
+                if "timeout" in options:
+                    negotiated_timeout = int(options["timeout"])
+                    print(f"Negotiated timeout: {negotiated_timeout}")
+                    sock.settimeout(negotiated_timeout)
+                
+                if "tsize" in options:
+                    negotiated_tsize = int(options["tsize"])
+                    print(f"Negotiated transfer size: {negotiated_tsize}")
+
+                ack = b'\x00\x04' + (0).to_bytes(2, byteorder='big')
+                sock.sendto(ack, addr)
+                print("Sent ACK for OACK (block #0)")
+                expected_block = 1
+                continue  # Wait for the first ACK (block 1)
+            elif opcode == 4:  # ACK packet
+                block_num = int.from_bytes(data[2:4], byteorder='big')
+                print(f"Received ACK for block #{block_num} from {addr}")
+                if block_num == expected_block - 1:
+                    block = f.read(buffer_size - 4)
+                    if not block:
+                        print("Upload Complete. All data blocks sent.")
+                        break
+                    data_packet = b'\x00\x03' + expected_block.to_bytes(2, byteorder='big') + block
+                    sock.sendto(data_packet, addr)
+                    print(f"Sent DATA packet, block #{expected_block} to {addr}")
+                    expected_block += 1
+                else:
+                    print(f"Unexpected ACK block number: {block_num}. Expected: {expected_block - 1}")
+                    break
+            elif opcode == 5:  # ERROR packet
+                error_code = int.from_bytes(data[2:4], byteorder='big')
+                error_msg = data[4:-1].decode('ascii')
+                print(display_error(error_code))
+                print(f"Server returned error {error_code}: {error_msg}")
+                break
+            else:
+                print(f"Unknown opcode: {opcode}")
+                break
+# end test wrq
 
 # implement this first
 # RRQ(1)
@@ -86,30 +160,25 @@ def tftp_download(sock, server_address):
 
     print(f"Sent RRQ for '{download_file_name}' to {server_address}")
 
-    # add implementation here later 
     expected_block = 1
     options_negotiated = False
-
+    buffer_size = 516  # Default buffer size
 
     with open(file_name, 'wb') as f:
         while True:
             try:
-                data, addr = sock.recvfrom(516)
+                data, addr = sock.recvfrom(buffer_size)
                 print(f"Received data from {addr}")
             except socket.timeout:
                 print("Timeout waiting for response from the server.")
-                break # exit loop if timeout occurs
+                break
             
             opcode = int.from_bytes(data[:2], byteorder='big')
-            print(f"Received opcode: {opcode}") # remove this after testing
+            print(f"Received opcode: {opcode}")
 
-            # start testing of oack handling
             if opcode == 6:  # OACK packet
                 print("Received OACK from server. Negotiating options...")
-                # Parse options (key-value pairs)
                 options = {}
-                # Data after the first 2 bytes is a series of null-terminated strings.
-                # Splitting on b'\x00' gives us a list; note that the last element may be empty.
                 parts = data[2:].split(b'\x00')
                 parts = [p for p in parts if p]  # remove empty parts
                 for i in range(0, len(parts), 2):
@@ -118,33 +187,38 @@ def tftp_download(sock, server_address):
                     options[key] = value
                 print("Negotiated options:", options)
 
-                # Update local settings based on options (e.g., block size)
                 if "blksize" in options:
                     negotiated_blksize = int(options["blksize"])
                     print(f"Negotiated block size: {negotiated_blksize}")
-                    # If needed, adjust the size of the recvfrom buffer
-                    # For simplicity, we'll assume 516 still works if block size isn't too high.
+                    buffer_size = negotiated_blksize + 4  # Adjust buffer size for data + TFTP header
                 
-                # Acknowledge the OACK by sending an ACK with block number 0.
+                if "timeout" in options:
+                    negotiated_timeout = int(options["timeout"])
+                    print(f"Negotiated timeout: {negotiated_timeout}")
+                    sock.settimeout(negotiated_timeout)
+                
+                # removed tsize option in rrq packet
+
                 ack = b'\x00\x04' + (0).to_bytes(2, byteorder='big')
                 sock.sendto(ack, addr)
                 print("Sent ACK for OACK (block #0)")
                 options_negotiated = True
                 continue  # Wait for the first data block (block 1)
-            # end testing
             elif opcode == 3:
                 block_num = int.from_bytes(data[2:4], byteorder='big')
                 print(f"Received DATA packet, block #{block_num} from {addr}")
                 if block_num == expected_block:
+                    block_size = len(data[4:])
+                    print(f"Block size: {block_size} bytes")
                     f.write(data[4:])
                     ack = b'\x00\x04' + data[2:4]
                     sock.sendto(ack, addr)
-                    print(f"Sent ACK for block #{block_num} to {addr}")
+                    print(f"Sent ACK #{block_num} for block #{block_num} to {addr}")
 
                     expected_block += 1
 
-                    if len(data[4:]) < 512:
-                        print("Received final data block.")
+                    if block_size < buffer_size - 4:
+                        print(f"Download Complete. Received final data block. Block size: {block_size} bytes")
                         break
                 else:
                     print(f"Unexpected block number: {block_num}. Expected: {expected_block}")
@@ -153,10 +227,10 @@ def tftp_download(sock, server_address):
                 error_code = int.from_bytes(data[2:4], byteorder='big')
                 error_msg = data[4:-1].decode('ascii')
                 display_error(error_code)
-                print(f"Server returned error {error_code}: {error_msg}") # remove after testing 
+                print(f"Server returned error {error_code}: {error_msg}")
                 break
             else:
-                print(f"Unknown opcode: {opcode}") # for testing purposes
+                print(f"Unknown opcode: {opcode}")
                 break
 
 
@@ -177,7 +251,7 @@ def ask_option(option_name: str) -> str | None:
 # Option 1: Block Size
 def custom_block_size():
     block_size = ask_option("block size")
-    print(f"block size: {block_size}")
+    print(f"test block size: {block_size}")
     return b'blksize\x00' + block_size.encode('ascii') + b'\x00' if block_size else b''
 
 # Option 2: Timeout
@@ -200,10 +274,11 @@ def construct_rrq_packet(filename):
     return rrq
 
 # this constructs the WRQ packet format
-def cqonstruct_wrq_packet(filename):
+def construct_wrq_packet(filename):
     mode = "netascii" if filename.endswith(".txt") else "octet"
-    return b'\x00\x02' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00'
-    
+    wrq = b'\x00\x02' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00'
+    return wrq
+  
 
 def main():
     host, port = ask_address() # type => string, int
