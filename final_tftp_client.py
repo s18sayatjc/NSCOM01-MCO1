@@ -1,29 +1,30 @@
+# NSCOM01 - Machine Project #1
+# @author: Andrei De Jesus, Ian Sayat
+# @section: S13
+# last modified @ 02/19/2025 10:20 AM
+
 import socket
 import os
 
-
-# TO-DO LIST
-# 1. Finish the implementation of the WRQ function
-# 2. Implement the custom options for the RRQ and WRQ functions
-# 3. Do some test cases for the RRQ and WRQ functions
-# 4. Find some errors and implement additional error handling
-# 5. Remove some unnecessary comments and print statements that are use for debugging
-
-# ask user to input server address and validate if the input is valid
+# TODO-LIST
+# 1. Find some errors and use wireshare to see rrq and wrq queries
+# 2. Do some testing to see if the program is working and is following the requirements
+# 3. Use the rubrics as test cases to see if the program is working correctly
+# 4. Add some comments to the code to make it more readable
 
 # print a line of asterisks for design purposes
 def print_ast():
-    print("*" * 50)
+    print("*" * 75)
 
+# ask user to input server address and validate if the input is valid
 def ask_address():
     while True:
         print_ast()
         try:
-            host = input("ENTER SERVER ADDRESS: ")  # ask user to input server address
-            # checks if the input is valid
+            host = input("ENTER SERVER ADDRESS: ")
             if host.count('.') != 3 or host.endswith('.'):
                 raise ValueError("Invalid IP address format")
-            port = 69  # default port number for TFTP
+            port = 69  # use default port number for TFTP
             return (host, port)  # return the host and port number
         except Exception as e:
             print("Error:", e)  # print error message
@@ -60,8 +61,7 @@ def display_error(errorcode: int) -> str:
     return f"Error code {errorcode}: {tftp_errors[errorcode]}"  # return the error message
 
 # start test wrq
-# WRQ(2)
-# currently working with jpg, bin, and text files
+# WRQ(2) => currently working with different file types
 def tftp_upload(sock, server_address): 
     print_ast()
 
@@ -74,10 +74,9 @@ def tftp_upload(sock, server_address):
         print(f"Error: File '{upload_file_name}' does not exist in the client's directory.")
         return
 
-    # implement the custom option handling for wrq
     # test the custom options handling and display
     wrq = construct_wrq_packet(upload_file_name)
-    # Implement the handling to display a message when server is not yet listening
+
     try:
         sock.sendto(wrq, server_address)
         print(f"Sent WRQ for '{upload_file_name}' to {server_address}")
@@ -158,8 +157,7 @@ def tftp_upload(sock, server_address):
                 break
 # end test wrq
 
-# start test rrq
-# RRQ(1)
+# done testing rrq, but needs further checking for other errors
 def tftp_download(sock, server_address):
     print_ast()
     print("-- DOWNLOAD FILE (RRQ) --")
@@ -176,6 +174,7 @@ def tftp_download(sock, server_address):
 
     # display the file name that will be use to store the downloaded file
     print(f"File will be saved as '{file_name}'")
+    print_ast()
 
     # Construct RRQ packet
     rrq = construct_rrq_packet(download_file_name)
@@ -195,13 +194,12 @@ def tftp_download(sock, server_address):
             print_ast()
             try:
                 data, addr = sock.recvfrom(buffer_size)
-                print(f"Received data from {addr}")
             except socket.timeout:
                 print("Timeout waiting for response from the server.")
                 break
             
             opcode = int.from_bytes(data[:2], byteorder='big')
-            print(f"Received opcode: {opcode}")
+            print(f"Received opcode: {opcode}") # remove after debugging
 
             if opcode == 6:  # OACK packet
                 print("Received OACK from server. Negotiating options...")
@@ -257,11 +255,9 @@ def tftp_download(sock, server_address):
             else:
                 print(f"Unknown opcode: {opcode}")  # print unknown opcode if there is any for debugging purposes
                 break
-# end test rrq
 
 # ask user if they want to have a custom option
 def ask_option(option_name: str) -> str | None:
-    print_ast()
     while True:
         answer = input(f"Do you want to have a custom {option_name}? (y/n): ")
         if answer.lower() in ['y', 'n']:
