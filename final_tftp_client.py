@@ -75,7 +75,7 @@ def tftp_upload(sock, server_address):
         return
 
     # test the custom options handling and display
-    wrq = construct_wrq_packet(upload_file_name)
+    wrq = construct_tftp_packet(upload_file_name, "WRQ")
     print(f"Constructed WRQ packe: {wrq}")
 
     try:
@@ -178,7 +178,7 @@ def tftp_download(sock, server_address):
     print_ast()
 
     # Construct RRQ packet
-    rrq = construct_rrq_packet(download_file_name)
+    rrq = construct_tftp_packet(download_file_name, "RRQ")
     print(f"Constructed RRQ packet: {rrq}")
     try:
         sock.sendto(rrq, server_address)
@@ -273,44 +273,46 @@ def ask_option(option_name: str) -> str | None:
     else:
         return None
 
-# Custom Option 1: Block Size
-def custom_block_size():
+# this function handles the custom options for the client
+def custom_options(request_type):
+    options = b''
+    
     block_size = ask_option("block size")
-    print(f"test block size: {block_size}")
-    return b'blksize\x00' + block_size.encode('ascii') + b'\x00' if block_size else b''
-
-# Custom Option 2: Timeout
-def custom_timeout():
+    if block_size:
+        print(f"Custom block size: {block_size}")
+        options += b'blksize\x00' + block_size.encode('ascii') + b'\x00'
+    
     timeout = ask_option("timeout")
-    print(f"timeout: {timeout}")
-    return b'timeout\x00' + timeout.encode('ascii') + b'\x00' if timeout else b''
+    if timeout:
+        print(f"Custom timeout: {timeout}")
+        options += b'timeout\x00' + timeout.encode('ascii') + b'\x00'
+    
+    if request_type == "WRQ":
+        transfer_size = ask_option("transfer size")
+        if transfer_size:
+            print(f"Custom transfer size: {transfer_size}")
+            options += b'tsize\x00' + transfer_size.encode('ascii') + b'\x00'
 
-# Custom Option 3: Transfer Size
-def custom_tsize():
-    transfer_size = ask_option("transfer size")
-    print(f"transfer size: {transfer_size}")
-    return b'tsize\x00' + transfer_size.encode('ascii') + b'\x00' if transfer_size else b''
+    return options
 
-# this function constructs the RRQ packet format
-def construct_rrq_packet(filename):
+# construct the tftp packet with the custom options
+def construct_tftp_packet(filename, request_type):
     print("-- NEGOTIATION OPTIONS --")
 
     mode = "netascii" if filename.endswith(".txt") else "octet"
-    rrq = b'\x00\x01' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00' 
-    rrq += custom_block_size() + custom_timeout() # removed custom tsize for rrq
+    if request_type == "RRQ":
+        opcode = b'\x00\x01'
+        options = custom_options(request_type)  # removed custom tsize for rrq
+    elif request_type == "WRQ":
+        opcode = b'\x00\x02'
+        options = custom_options(request_type)
+    else:
+        raise ValueError("Invalid request type. Must be 'RRQ' or 'WRQ'.")
 
-    return rrq # return rrq packet with optional added custom options
+    packet = opcode + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00' + options
+    return packet  # return the constructed packet with optional added custom options
 
-# this function constructs the WRQ packet format
-def construct_wrq_packet(filename):
-    print("-- NEGOTIATION OPTIONS --")
 
-    mode = "netascii" if filename.endswith(".txt") else "octet"
-    wrq = b'\x00\x02' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00'
-    wrq += custom_block_size() + custom_timeout() + custom_tsize()
-
-    return wrq # return wrq packet with optional added custom options
-  
 # main function
 def main():
     host, port = ask_address() # destructure the tuple
