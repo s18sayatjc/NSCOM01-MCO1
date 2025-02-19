@@ -1,5 +1,5 @@
 # NSCOM01 - Machine Project #1
-# @author: Andrei De Jesus, Ian Sayat
+# @author: Andrei De Jesus, John Sayat
 # @section: S13
 # last modified @ 02/19/2025 10:20 AM
 
@@ -76,6 +76,7 @@ def tftp_upload(sock, server_address):
 
     # test the custom options handling and display
     wrq = construct_wrq_packet(upload_file_name)
+    print(f"Constructed WRQ packe: {wrq}")
 
     try:
         sock.sendto(wrq, server_address)
@@ -178,6 +179,7 @@ def tftp_download(sock, server_address):
 
     # Construct RRQ packet
     rrq = construct_rrq_packet(download_file_name)
+    print(f"Constructed RRQ packet: {rrq}")
     try:
         sock.sendto(rrq, server_address)
         print(f"Sent RRQ for '{download_file_name}' to {server_address}")
