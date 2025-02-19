@@ -5,6 +5,8 @@ Requirements:
  - Tftpd64 is installed
  - A network connection
 
+IMPORTANT: After extraction of zip file, move the files outside the folder if there is an error that is like this 'does not exist in the client's directory.'
+
 Setting up TFTP Server (Tftpd64)
 1. Open Tftpd64.
 2. Set your base directory path.
