@@ -1,9 +1,23 @@
 import socket
 import os
 
+
+# TO-DO LIST
+# 1. Finish the implementation of the WRQ function
+# 2. Implement the custom options for the RRQ and WRQ functions
+# 3. Do some test cases for the RRQ and WRQ functions
+# 4. Find some errors and implement additional error handling
+# 5. Remove some unnecessary comments and print statements that are use for debugging
+
 # ask user to input server address and validate if the input is valid
+
+# print a line of asterisks for design purposes
+def print_ast():
+    print("*" * 50)
+
 def ask_address():
     while True:
+        print_ast()
         try:
             host = input("ENTER SERVER ADDRESS: ")  # ask user to input server address
             # checks if the input is valid
@@ -17,6 +31,7 @@ def ask_address():
 # display the operations a client can do
 def display_menu() -> int:
     while True:
+        print_ast()
         print("-- TFTP CLIENT --")
         print("1. Read file")
         print("2. Write file")
@@ -46,29 +61,37 @@ def display_error(errorcode: int) -> str:
 
 # start test wrq
 # WRQ(2)
-
-# WRQ(2)
-# currently working with jpg files
+# currently working with jpg, bin, and text files
 def tftp_upload(sock, server_address): 
+    print_ast()
+
     print("-- UPLOAD FILE (WRQ) --")
     upload_file_name = input("NAME OF FILE TO UPLOAD: ")
-    custom_file_name = input("CUSTOM FILE NAME WHEN UPLOADED IN THE SERVER: ")
+    # removed custome file name when uploading to the server
 
     # Check if the file exists in the client's directory
     if not os.path.isfile(upload_file_name):
         print(f"Error: File '{upload_file_name}' does not exist in the client's directory.")
         return
 
-    print("NEGOTIATION OPTIONS")
-    wrq = construct_wrq_packet(custom_file_name)
-    sock.sendto(wrq, server_address)
-    print(f"Sent WRQ for '{upload_file_name}' to {server_address}")
+    # implement the custom option handling for wrq
+    # test the custom options handling and display
+    wrq = construct_wrq_packet(upload_file_name)
+
+    # Implement the handling to display a message when server is not yet listening
+    try:
+        sock.sendto(wrq, server_address)
+        print(f"Sent WRQ for '{upload_file_name}' to {server_address}")
+    except socket.error as e:
+        print(f"Error: Unable to send WRQ to server. Server might not be listening. Details: {e}")
+        return
 
     expected_block = 1  # Set initial expected block to 1
     buffer_size = 516  # Default buffer size
 
     with open(upload_file_name, 'rb') as f:
         while True:
+            print_ast()
             try:
                 data, addr = sock.recvfrom(buffer_size)
                 print(f"Received data from {addr}")
@@ -94,12 +117,12 @@ def tftp_upload(sock, server_address):
                     negotiated_blksize = int(options["blksize"])
                     print(f"Negotiated block size: {negotiated_blksize}")
                     buffer_size = negotiated_blksize + 4  # Adjust buffer size for data + TFTP header
-                
+
                 if "timeout" in options:
                     negotiated_timeout = int(options["timeout"])
                     print(f"Negotiated timeout: {negotiated_timeout}")
                     sock.settimeout(negotiated_timeout)
-                
+
                 if "tsize" in options:
                     negotiated_tsize = int(options["tsize"])
                     print(f"Negotiated transfer size: {negotiated_tsize}")
@@ -120,6 +143,7 @@ def tftp_upload(sock, server_address):
                     data_packet = b'\x00\x03' + expected_block.to_bytes(2, byteorder='big') + block
                     sock.sendto(data_packet, addr)
                     print(f"Sent DATA packet, block #{expected_block} to {addr}")
+                    print(f"Block size: {len(block)} bytes")
                     expected_block += 1
                 else:
                     print(f"Unexpected ACK block number: {block_num}. Expected: {expected_block - 1}")
@@ -135,9 +159,10 @@ def tftp_upload(sock, server_address):
                 break
 # end test wrq
 
-# implement this first
+# start test rrq
 # RRQ(1)
 def tftp_download(sock, server_address):
+    print_ast()
     print("-- DOWNLOAD FILE (RRQ) --")
     download_file_name = input("NAME OF FILE TO DOWNLOAD: ")
     print("Note: ./ => retain original name")
@@ -149,10 +174,8 @@ def tftp_download(sock, server_address):
     else:
         file_name = custom_file_name  # Use custom name (even if it's the same)
 
-    
     print(f"File will be saved as '{file_name}'")
 
-    print("-- NEGOTIATION OPTIONS --") 
     # custom options return b'' if no custom option is selected
     rrq = construct_rrq_packet(download_file_name)
 
@@ -166,6 +189,7 @@ def tftp_download(sock, server_address):
 
     with open(file_name, 'wb') as f:
         while True:
+            print_ast()
             try:
                 data, addr = sock.recvfrom(buffer_size)
                 print(f"Received data from {addr}")
@@ -232,9 +256,11 @@ def tftp_download(sock, server_address):
             else:
                 print(f"Unknown opcode: {opcode}")
                 break
+# end test rrq
 
-
+# ask user if they want to have a custom option
 def ask_option(option_name: str) -> str | None:
+    print_ast()
     while True:
         answer = input(f"Do you want to have a custom {option_name}? (y/n): ")
         if answer.lower() in ['y', 'n']:
@@ -243,61 +269,65 @@ def ask_option(option_name: str) -> str | None:
             print("Invalid choice. Please enter 'y' or 'n'.")
 
     if answer.lower() == 'y':   
-        custom_value = input(f"Enter custom {option_name}: ")
+        custom_value = input(f"Enter custom {option_name} value: ")
         return custom_value
     else:
         return None
 
-# Option 1: Block Size
+# Custom Option 1: Block Size
 def custom_block_size():
     block_size = ask_option("block size")
     print(f"test block size: {block_size}")
     return b'blksize\x00' + block_size.encode('ascii') + b'\x00' if block_size else b''
 
-# Option 2: Timeout
+# Custom Option 2: Timeout
 def custom_timeout():
     timeout = ask_option("timeout")
     print(f"timeout: {timeout}")
     return b'timeout\x00' + timeout.encode('ascii') + b'\x00' if timeout else b''
 
-# Option 3: Transfer Size
+# Custom Option 3: Transfer Size
 def custom_tsize():
     transfer_size = ask_option("transfer size")
     print(f"transfer size: {transfer_size}")
     return b'tsize\x00' + transfer_size.encode('ascii') + b'\x00' if transfer_size else b''
 
-# this constructs the RRQ packet format
+# this function constructs the RRQ packet format
 def construct_rrq_packet(filename):
+    print("-- NEGOTIATION OPTIONS --")
     mode = "netascii" if filename.endswith(".txt") else "octet"
     rrq = b'\x00\x01' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00' 
     rrq += custom_block_size() + custom_timeout() + custom_tsize()
-    return rrq
+    return rrq # return rrq packet with optional added custom options
 
-# this constructs the WRQ packet format
+# this function constructs the WRQ packet format
 def construct_wrq_packet(filename):
+    print("-- NEGOTIATION OPTIONS --")
     mode = "netascii" if filename.endswith(".txt") else "octet"
     wrq = b'\x00\x02' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00'
-    return wrq
+    wrq += custom_block_size() + custom_timeout() + custom_tsize()
+    return wrq # return wrq packet with optional added custom options
   
-
+# main function
 def main():
-    host, port = ask_address() # type => string, int
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(5) # default timeout is 5 seconds
-    server_address = (host, port) # type => tuple
+    host, port = ask_address() # destructure the tuple
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # create a socket object
+    sock.settimeout(5) # set the default timeout to 5 seconds
+    server_address = (host, port) # assign the host and port to the server address
 
     while True:
-        choice = display_menu()
+        choice = display_menu() # prompt the user to select an operation
 
         if choice == 1: # RRQ
-            tftp_download(sock, server_address)  # currently implementing this function
+            tftp_download(sock, server_address)
         elif choice == 2: # WRQ
-            tftp_upload(sock, server_address)    # finish implementing this function
+            tftp_upload(sock, server_address)    
         elif choice == 3:
+            print("Exiting program...")
             sock.close() # close the socket
-            break
+            break # exit the program
         else:
-            print("Invalid choice. Please try again.")
+            print("Invalid choice. Please try again.") # prompt the user to enter a valid choice
 
 
 main()
