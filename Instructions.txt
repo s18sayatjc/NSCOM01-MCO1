@@ -7,15 +7,16 @@ Requirements:
 
 Setting up TFTP Server (Tftpd64)
 1. Open Tftpd64.
-2. Navigate to Settings:
+2. Set your base directory path.
+3. Navigate to Settings:
     - Go to Global settings.
     - Check the option TFTP Server.
-3. Go to TFTP settings:
+4. Go to TFTP settings:
     - Set Write local ports pool to 3000:3000.
     - Check Option negotiation.
     - Check Show progress bar.
     - Bind the server to your local IP address
-4. Save the settings and restart Tftpd64 if necessary.
+5. Save the settings and restart Tftpd64 if necessary.
 
 Setting up Wireshark
 1. Use 'Adapter for loopback traffic capture' if using local machine
