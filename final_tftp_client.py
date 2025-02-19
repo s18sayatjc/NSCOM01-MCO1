@@ -77,7 +77,6 @@ def tftp_upload(sock, server_address):
     # implement the custom option handling for wrq
     # test the custom options handling and display
     wrq = construct_wrq_packet(upload_file_name)
-
     # Implement the handling to display a message when server is not yet listening
     try:
         sock.sendto(wrq, server_address)
@@ -167,21 +166,25 @@ def tftp_download(sock, server_address):
     download_file_name = input("NAME OF FILE TO DOWNLOAD: ")
     print("Note: ./ => retain original name")
     custom_file_name = input("CUSTOM FILE NAME WHEN DOWNLOADED LOCALLY: ")
-    file_name = "" # name of the file when downloaded locally
+    file_name = ""
 
+    # Check if the file name is a custom name
     if custom_file_name.startswith("./"):
-        file_name = download_file_name  # Keep original name
+        file_name = download_file_name  # Retain original name
     else:
-        file_name = custom_file_name  # Use custom name (even if it's the same)
+        file_name = custom_file_name  # Use custom name
 
+    # display the file name that will be use to store the downloaded file
     print(f"File will be saved as '{file_name}'")
 
-    # custom options return b'' if no custom option is selected
+    # Construct RRQ packet
     rrq = construct_rrq_packet(download_file_name)
-
-    sock.sendto(rrq, server_address)
-
-    print(f"Sent RRQ for '{download_file_name}' to {server_address}")
+    try:
+        sock.sendto(rrq, server_address)
+        print(f"Sent RRQ for '{download_file_name}' to {server_address}")
+    except socket.error as e:
+        print(f"Error: Unable to send RRQ to server. Server might not be listening. Details: {e}")
+        return
 
     expected_block = 1
     options_negotiated = False
@@ -220,9 +223,7 @@ def tftp_download(sock, server_address):
                     negotiated_timeout = int(options["timeout"])
                     print(f"Negotiated timeout: {negotiated_timeout}")
                     sock.settimeout(negotiated_timeout)
-                
                 # removed tsize option in rrq packet
-
                 ack = b'\x00\x04' + (0).to_bytes(2, byteorder='big')
                 sock.sendto(ack, addr)
                 print("Sent ACK for OACK (block #0)")
@@ -239,7 +240,7 @@ def tftp_download(sock, server_address):
                     sock.sendto(ack, addr)
                     print(f"Sent ACK #{block_num} for block #{block_num} to {addr}")
 
-                    expected_block += 1
+                    expected_block += 1 
 
                     if block_size < buffer_size - 4:
                         print(f"Download Complete. Received final data block. Block size: {block_size} bytes")
@@ -254,7 +255,7 @@ def tftp_download(sock, server_address):
                 print(f"Server returned error {error_code}: {error_msg}")
                 break
             else:
-                print(f"Unknown opcode: {opcode}")
+                print(f"Unknown opcode: {opcode}")  # print unknown opcode if there is any for debugging purposes
                 break
 # end test rrq
 
@@ -295,17 +296,21 @@ def custom_tsize():
 # this function constructs the RRQ packet format
 def construct_rrq_packet(filename):
     print("-- NEGOTIATION OPTIONS --")
+
     mode = "netascii" if filename.endswith(".txt") else "octet"
     rrq = b'\x00\x01' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00' 
-    rrq += custom_block_size() + custom_timeout() + custom_tsize()
+    rrq += custom_block_size() + custom_timeout() # removed custom tsize for rrq
+
     return rrq # return rrq packet with optional added custom options
 
 # this function constructs the WRQ packet format
 def construct_wrq_packet(filename):
     print("-- NEGOTIATION OPTIONS --")
+
     mode = "netascii" if filename.endswith(".txt") else "octet"
     wrq = b'\x00\x02' + filename.encode('ascii') + b'\x00' + mode.encode('ascii') + b'\x00'
     wrq += custom_block_size() + custom_timeout() + custom_tsize()
+
     return wrq # return wrq packet with optional added custom options
   
 # main function
@@ -315,19 +320,27 @@ def main():
     sock.settimeout(5) # set the default timeout to 5 seconds
     server_address = (host, port) # assign the host and port to the server address
 
+    # loop while the user does not exit the program
     while True:
-        choice = display_menu() # prompt the user to select an operation
+        # prompt the user to select an operation
+        choice = display_menu()
 
-        if choice == 1: # RRQ
+        if choice == 1:
+            # perform the RRQ operation
             tftp_download(sock, server_address)
-        elif choice == 2: # WRQ
+        elif choice == 2:
+            # perform the WRQ operation
             tftp_upload(sock, server_address)    
         elif choice == 3:
+            # display a message when the user exits the program
             print("Exiting program...")
-            sock.close() # close the socket
-            break # exit the program
+            # close the socket and exit the program
+            sock.close()
+            break 
         else:
-            print("Invalid choice. Please try again.") # prompt the user to enter a valid choice
+            # prompt the user to enter a valid choice
+            print("Invalid choice. Please try again.")
 
 
-main()
+if __name__ == "__main__":
+    main() # call the main function
