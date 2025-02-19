@@ -1,7 +1,7 @@
 # @NSCOM01 - Machine Project #1
 # @author: Andrei De Jesus, John Sayat
 # @section: S13
-# last modified @ 02/19/2025 11:00 PM
+# last modified @ 02/19/2025 11:00 PM final version
 
 import socket
 import os
@@ -143,7 +143,7 @@ def tftp_upload(sock, server_address):
                 continue  # Wait for the first ACK (block 1)
             elif opcode == 4:  # ACK packet
                 block_num = int.from_bytes(data[2:4], byteorder='big')
-                print(f"Received ACK for block #{block_num} from {addr}")
+                print(f"Received ACK #{block_num} for block #{block_num} from {addr}")
                 if block_num == expected_block - 1:
                     block = f.read(buffer_size - 4)
                     if not block:
@@ -311,7 +311,7 @@ def construct_tftp_packet(filename, request_type):
     mode = "netascii" if filename.endswith(".txt") else "octet"
     if request_type == "RRQ":
         opcode = b'\x00\x01'
-        options = custom_options(request_type)  # removed custom tsize for rrq
+        options = custom_options(request_type)
     elif request_type == "WRQ":
         opcode = b'\x00\x02'
         options = custom_options(request_type)
