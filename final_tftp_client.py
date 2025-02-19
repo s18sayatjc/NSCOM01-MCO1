@@ -1,16 +1,10 @@
-# NSCOM01 - Machine Project #1
+# @NSCOM01 - Machine Project #1
 # @author: Andrei De Jesus, John Sayat
 # @section: S13
-# last modified @ 02/19/2025 10:20 AM
+# last modified @ 02/19/2025 11:00 PM
 
 import socket
 import os
-
-# TODO-LIST
-# 1. Find some errors and use wireshare to see rrq and wrq queries
-# 2. Do some testing to see if the program is working and is following the requirements
-# 3. Use the rubrics as test cases to see if the program is working correctly
-# 4. Add some comments to the code to make it more readable
 
 # print a line of asterisks for design purposes
 def print_ast():
@@ -60,27 +54,36 @@ def display_error(errorcode: int) -> str:
     }
     return f"Error code {errorcode}: {tftp_errors[errorcode]}"  # return the error message
 
-# start test wrq
-# WRQ(2) => currently working with different file types
+# function to handle the WRQ operation
 def tftp_upload(sock, server_address): 
     print_ast()
 
     print("-- UPLOAD FILE (WRQ) --")
     upload_file_name = input("NAME OF FILE TO UPLOAD: ")
-    # removed custome file name when uploading to the server
+    print("Note: ./ => retain original name")
+    custom_file_name = input("CUSTOM FILE NAME WHEN UPLOADED TO SERVER: ")
+    file_name2 = ""
 
+    if custom_file_name == "./":
+        file_name2 = upload_file_name # Retain original name
+    else:
+        file_name2 = custom_file_name # Use custom name
+    
     # Check if the file exists in the client's directory
     if not os.path.isfile(upload_file_name):
         print(f"Error: File '{upload_file_name}' does not exist in the client's directory.")
         return
 
+    print(f"File will be saved as '{file_name2}'")
+    print_ast()
+
     # test the custom options handling and display
-    wrq = construct_tftp_packet(upload_file_name, "WRQ")
-    print(f"Constructed WRQ packe: {wrq}")
+    wrq = construct_tftp_packet(file_name2, "WRQ")
+    print(f"Constructed WRQ packet: {wrq}")
 
     try:
         sock.sendto(wrq, server_address)
-        print(f"Sent WRQ for '{upload_file_name}' to {server_address}")
+        print(f"Sent WRQ for '{file_name2}' to {server_address}")
     except socket.error as e:
         print(f"Error: Unable to send WRQ to server. Server might not be listening. Details: {e}")
         return
@@ -129,7 +132,14 @@ def tftp_upload(sock, server_address):
                 ack = b'\x00\x04' + (0).to_bytes(2, byteorder='big')
                 sock.sendto(ack, addr)
                 print("Sent ACK for OACK (block #0)")
-                expected_block = 1
+
+                block = f.read(buffer_size - 4)
+                if block:
+                    data_packet = b'\x00\x03' + expected_block.to_bytes(2, byteorder='big') + block
+                    sock.sendto(data_packet, addr)
+                    print(f"Sent DATA packet, block #{expected_block} to {addr}")
+                    print(f"Block size: {len(block)} bytes")
+                    expected_block += 1
                 continue  # Wait for the first ACK (block 1)
             elif opcode == 4:  # ACK packet
                 block_num = int.from_bytes(data[2:4], byteorder='big')
@@ -156,9 +166,8 @@ def tftp_upload(sock, server_address):
             else:
                 print(f"Unknown opcode: {opcode}")
                 break
-# end test wrq
 
-# done testing rrq, but needs further checking for other errors
+# function to handle the RRQ operation
 def tftp_download(sock, server_address):
     print_ast()
     print("-- DOWNLOAD FILE (RRQ) --")
