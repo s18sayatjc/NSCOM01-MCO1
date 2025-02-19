@@ -1,0 +1,27 @@
+Instructions for Compiling and Running the TFTP Client
+
+Requirements:
+ - Python 3.x should be installed
+ - Tftpd64 is installed
+ - A network connection
+
+Setting up TFTP Server (Tftpd64)
+1. Open Tftpd64.
+2. Navigate to Settings:
+    - Go to Global settings.
+    - Check the option TFTP Server.
+3. Go to TFTP settings:
+    - Set Write local ports pool to 3000:3000.
+    - Check Option negotiation.
+    - Check Show progress bar.
+    - Bind the server to your local IP address
+4. Save the settings and restart Tftpd64 if necessary.
+
+Setting up Wireshark
+1. Use 'Adapter for loopback traffic capture' if using local machine
+2. Apply display filter 'tftp' or 'udp.port==69'
+3. Check for upcoming packets
+
+Running the TFTP Client
+1. Open a terminal or command prompt or run VSCode.
+2. Run final_tftp_client.py
